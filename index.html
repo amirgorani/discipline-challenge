@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>برنامه‌ریز انضباط روزانه</title>
+<meta name="description" content="چالش انضباط روزانه فارسی با احراز هویت و دیتابیس Supabase — فرانت‌اند روی GitHub Pages، بدون سرور اختصاصی." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="supabase-config.js" onerror="window.SUPABASE_CONFIG_MISSING=true"></script>
+</head>
+<body>
+<div class="bg-glow"></div>
+
+<!-- ============ SETUP: connect to Supabase ============ -->
+<div id="view-setup" class="screen hidden">
+  <div class="auth-card wide">
+    <div class="logo big-logo">DP</div>
+    <h2>اتصال به دیتابیس Supabase</h2>
+    <p class="muted small">این برنامه بدون سرور اختصاصی کار می‌کند: فرانت‌اند روی GitHub Pages و داده‌ها در دیتابیس Supabase شما. فقط <strong>کلید عمومی anon</strong> استفاده می‌شود (هرگز service_role را اینجا وارد نکنید).</p>
+    <ol class="steps">
+      <li>در <strong>supabase.com</strong> یک پروژه رایگان بسازید.</li>
+      <li>در داشبورد Supabase وارد <strong>SQL Editor</strong> شوید و محتوای فایل <code>supabase/schema.sql</code> این پروژه را اجرا کنید (جدول‌ها + امنیت RLS ساخته می‌شود).</li>
+      <li>برای تست ساده‌تر: <strong>Authentication → Sign ups</strong> گزینه <strong>Confirm email</strong> را خاموش کنید.</li>
+      <li>از بخش <strong>Settings → API</strong> مقادیر <strong>Project URL</strong> و <strong>anon public key</strong> را کپی و زیر وارد کنید.</li>
+    </ol>
+    <label class="field"><span>Project URL</span><input type="text" id="setupUrl" dir="ltr" placeholder="https://xyzcompany.supabase.co" /></label>
+    <label class="field"><span>anon public key</span><input type="text" id="setupKey" dir="ltr" placeholder="eyJhbGciOi..." /></label>
+    <div class="row">
+      <button id="setupTestBtn" class="btn btn-primary" type="button">بررسی اتصال و ذخیره</button>
+      <button id="setupBackBtn" class="btn btn-ghost hidden" type="button">بازگشت</button>
+      <span id="setupMsg" class="muted small"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AUTH ============ -->
+<div id="view-auth" class="screen hidden">
+  <div class="auth-card">
+    <div class="logo big-logo">DP</div>
+    <h2>برنامه‌ریز انضباط روزانه</h2>
+    <p class="muted small">با ایمیل و رمز عبور وارد شوید یا حساب جدید بسازید. داده‌های شما در دیتابیس امن Supabase ذخیره می‌شود و در همه دستگاه‌ها در دسترس است.</p>
+    <div class="auth-tabs">
+      <button id="authTabLogin" class="tab active" type="button">ورود</button>
+      <button id="authTabRegister" class="tab" type="button">ثبت‌نام</button>
+    </div>
+    <div id="loginPane">
+      <label class="field"><span>ایمیل</span><input type="text" id="loginEmail" dir="ltr" placeholder="you@mail.com" /></label>
+      <label class="field"><span>رمز عبور</span><input type="password" id="loginPass" placeholder="رمز عبور" /></label>
+      <div class="row"><button id="loginBtn" class="btn btn-primary" type="button">ورود به حساب</button><span id="loginMsg" class="muted small"></span></div>
+    </div>
+    <div id="registerPane" class="hidden">
+      <label class="field"><span>نام کاربری</span><input type="text" id="regName" maxlength="30" placeholder="مثلاً علی" /></label>
+      <label class="field"><span>ایمیل</span><input type="text" id="regEmail" dir="ltr" placeholder="you@mail.com" /></label>
+      <label class="field"><span>رمز عبور (حداقل ۶ کاراکتر)</span><input type="password" id="regPass" placeholder="رمز عبور" /></label>
+      <label class="field"><span>تکرار رمز عبور</span><input type="password" id="regPass2" placeholder="تکرار رمز عبور" /></label>
+      <div class="row"><button id="regBtn" class="btn btn-primary" type="button">ساخت حساب</button><span id="regMsg" class="muted small"></span></div>
+    </div>
+    <div class="row" style="margin-top:.8rem"><button id="authSetupBtn" class="btn btn-ghost small" type="button">تغییر اتصال به Supabase</button></div>
+  </div>
+</div>
+
+<!-- ============ FIRST-CHALLENGE GATE ============ -->
+<div id="view-gate" class="modal hidden">
+  <div class="modal-card wide">
+    <h3>🎯 به برنامه خوش آمدید!</h3>
+    <p class="muted small">هنوز چالشی ندارید. برای شروع، <strong>اولین چالش خود</strong> را بسازید (مثلاً «چالش ۹۰ روزه انضباط»). ساختار پیگیری روزانه به‌صورت خودکار از تاریخ شروع ساخته می‌شود و تا چالش نسازید به بخش‌های برنامه دسترسی نخواهید داشت.</p>
+    <label class="field"><span>نام چالش</span><input type="text" id="gName" maxlength="60" placeholder="مثلاً چالش ۹۰ روزه انضباط" /></label>
+    <label class="field"><span>تاریخ شروع چالش</span><input type="date" id="gStart" /></label>
+    <label class="field"><span>نام هدف شخصی (اختیاری)</span><input type="text" id="gGoal" maxlength="80" placeholder="مثلاً یادگیری زبان..." /></label>
+    <div class="row">
+      <button id="gateCreateBtn" class="btn btn-primary" type="button">ایجاد چالش و ورود به برنامه</button>
+      <span id="gMsg" class="muted small"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="hidden">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">DP</div>
+      <div><h1>برنامه‌ریز انضباط روزانه</h1><p>مطالعه &bull; ورزش &bull; پیشرفت &mdash; هر روز</p></div>
+    </div>
+    <div class="top-actions">
+      <span class="user-pill" id="currentUserLabel"></span>
+      <button id="settingsBtn" class="btn btn-ghost" type="button" title="تنظیمات اتصال">تنظیمات</button>
+      <button id="logoutBtn" class="btn btn-ghost" type="button">خروج</button>
+    </div>
+  </header>
+
+  <div class="challenge-bar" id="challengeBar">
+    <span class="muted">چالش فعال:</span>
+    <select id="challengeSelect"></select>
+    <button id="newChallengeBtn" class="btn btn-primary small" type="button">+ ایجاد چالش جدید</button>
+  </div>
+
+  <nav class="tabs">
+    <button data-tab="challenges" class="tab" type="button">چالش‌ها</button>
+    <button data-tab="dashboard" class="tab active" type="button">داشبورد</button>
+    <button data-tab="checkin" class="tab" type="button">ثبت روزانه</button>
+    <button data-tab="calendar" class="tab" type="button">تقویم</button>
+    <button data-tab="schedule" class="tab" type="button">برنامه روزانه</button>
+    <button data-tab="stats" class="tab" type="button">آمار</button>
+    <button data-tab="rules" class="tab" type="button">قوانین</button>
+  </nav>
+
+  <main>
+    <!-- CHALLENGES -->
+    <section id="tab-challenges" class="panel">
+      <div class="card">
+        <div class="card-head"><h3>ایجاد چالش جدید</h3></div>
+        <p class="muted small">هر چالش نام و تاریخ شروع خودش را دارد و پیگیری، امتیاز و آمار آن کاملاً مستقل است. روزهایی که قبل از تاریخ شروع باشند هرگز در آمار حساب نمی‌شوند.</p>
+        <div class="form-grid">
+          <label class="field"><span>نام چالش</span><input type="text" id="cName" maxlength="60" placeholder="نام چالش..." /></label>
+          <label class="field"><span>تاریخ شروع چالش</span><input type="date" id="cStart" /></label>
+          <label class="field"><span>نام هدف شخصی (اختیاری)</span><input type="text" id="cGoal" maxlength="80" placeholder="مثلاً یادگیری زبان..." /></label>
+        </div>
+        <div class="row" style="margin-top:.7rem">
+          <button id="createChallengeBtn" class="btn btn-primary" type="button">ایجاد چالش</button>
+          <span id="cMsg" class="muted small"></span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>چالش‌های من</h3></div>
+        <div id="challengeList" class="chal-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>ویرایش چالش فعال</h3></div>
+        <div class="form-grid">
+          <label class="field"><span>نام چالش</span><input type="text" id="eName" maxlength="60" /></label>
+          <label class="field"><span>تاریخ شروع</span><input type="date" id="eStart" /></label>
+          <label class="field"><span>نام هدف شخصی</span><input type="text" id="eGoal" maxlength="80" /></label>
+        </div>
+        <div class="row" style="margin-top:.7rem">
+          <button id="saveChallengeBtn" class="btn btn-primary small" type="button">ذخیره تغییرات</button>
+          <button id="deleteChallengeBtn" class="btn btn-danger-ghost small" type="button">حذف این چالش</button>
+          <span id="eMsg" class="muted small"></span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>وظایف اختیاری چالش فعال</h3></div>
+        <p class="muted small">این وظایف اختیاری‌اند و جدا از ۶ قانون اجباری امتیاز می‌گیرند. هر وظیفه از روز ساخته‌شدن به بعد حساب می‌شود و قابل حذف یا ویرایش است؛ قوانین اجباری قابل حذف نیستند.</p>
+        <div class="sched-add">
+          <input type="text" id="customTaskTitle" maxlength="120" placeholder="مثلاً ۳۰ دقیقه ریاضی، تمرین برنامه‌نویسی..." />
+          <button id="addCustomTaskBtn" class="btn btn-primary small" type="button">افزودن وظیفه</button>
+        </div>
+        <ul id="customTaskList" class="tasks"></ul>
+      </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="tab-dashboard" class="panel active">
+      <div class="greet-row">
+        <div><h2 id="greetTitle">خوش آمدید</h2><p id="greetSub" class="muted"></p></div>
+        <div class="date-pill" id="todayPill"></div>
+      </div>
+      <div id="missedBanner" class="banner hidden"></div>
+
+      <div class="card" id="quickCard">
+        <div class="card-head">
+          <h3>⚡ ثبت سریع امروز</h3>
+          <div class="row"><span class="muted small" id="qScore"></span><button id="qSaveBtn" class="btn btn-primary" type="button">💾 ذخیره نتیجه امروز</button></div>
+        </div>
+        <p class="muted small">با یک کلیک هر مورد را انجام‌شده / انجام‌نشده کنید، سپس «ذخیره» بزنید. قوانین اجباری قابل حذف نیستند؛ مقادیر دقیق (صفحات، دقیقه‌ها، ساعت بیداری) را می‌توانید در بخش «ثبت روزانه» وارد کنید.</p>
+        <h4>قوانین اجباری</h4>
+        <div id="qRules" class="rules-check"></div>
+        <h4>وظایف اختیاری امروز</h4>
+        <div id="qCustom" class="rules-check"></div>
+        <div class="sched-add">
+          <input type="text" id="qNewTask" maxlength="120" placeholder="وظیفه اختیاری جدید..." />
+          <button id="qAddBtn" class="btn btn-primary small" type="button">افزودن</button>
+        </div>
+        <span id="qMsg" class="muted small"></span>
+      </div>
+
+      <div class="card" id="customizerCard">
+        <div class="card-head"><h3>🛠 شخصی‌سازی وظایف روزانه</h3></div>
+        <p class="muted small">عنوان و توضیح وظایف اختیاری را مدیریت کنید. این تغییرات فقط روی پیکربندی اثر دارد و سوابق روزهای گذشته را تغییر نمی‌دهد.</p>
+        <div class="form-grid-2">
+          <label class="field"><span>عنوان وظیفه جدید</span><input type="text" id="custTitle" maxlength="120" placeholder="مثلاً ۳۰ دقیقه ریاضی" /></label>
+          <label class="field"><span>توضیح (اختیاری)</span><input type="text" id="custDesc" maxlength="200" placeholder="توضیح کوتاه..." /></label>
+        </div>
+        <div class="row" style="margin-top:.6rem">
+          <button id="custAddBtn" class="btn btn-primary small" type="button">افزودن وظیفه</button>
+          <span id="custMsg" class="muted small"></span>
+        </div>
+        <ul id="custList" class="tasks"></ul>
+      </div>
+      <div class="grid-4">
+        <div class="card stat">
+          <span class="stat-label">امتیاز امروز (اجباری)</span>
+          <div class="score-wrap">
+            <svg class="ring" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="52" class="ring-bg" />
+              <circle id="todayRing" cx="60" cy="60" r="52" class="ring-fg" />
+            </svg>
+            <div class="ring-text"><strong id="todayScore">–</strong><span id="todayGrade">بدون ثبت</span></div>
+          </div>
+          <p id="todayDetail" class="muted small"></p>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">امتیاز کلی چالش</span>
+          <strong class="big" id="overallScore">–</strong><span class="muted">با احتساب روزهای از دست رفته</span>
+          <div class="divider"></div>
+          <span class="stat-label">رشته موفقیت فعلی / بهترین</span>
+          <strong class="big small-big"><span id="streakNow">۰</span> / <span id="streakBest">۰</span></strong>
+          <span class="muted">روز متوالی</span>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">درصد تکمیل</span>
+          <strong class="big" id="completionPct">۰٪</strong><span class="muted" id="completionSub"></span>
+          <div class="progress"><div id="completionBar"></div></div>
+          <span class="muted small" id="missedCount"></span>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">میانگین روزهای ثبت‌شده</span>
+          <strong class="big" id="avgScore">–</strong><span class="muted">روزهای کامل و تشویقی</span>
+          <div class="divider"></div>
+          <span class="stat-label">روزهای کامل / امتیاز تشویقی</span>
+          <strong id="rulesHitRate" class="big small-big">–</strong>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><h3>وضعیت امروز</h3><button class="btn btn-primary small" data-goto="checkin" type="button">ثبت امروز</button></div>
+          <div id="todayRules" class="rules-check"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>۱۴ روز گذشته</h3><button class="btn btn-ghost small" data-goto="stats" type="button">آمار کامل</button></div>
+          <canvas id="miniChart" height="140"></canvas>
+          <div id="recentList" class="recent-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHECK-IN -->
+    <section id="tab-checkin" class="panel">
+      <div class="card">
+        <div class="card-head"><h3>ثبت نتیجه روزانه</h3><input type="date" id="entryDate" /></div>
+        <p class="muted small">برای هر قانون و وظیفه مشخص کنید انجام شده یا نه. ذخیره مجدد، جایگزین ثبت همان روز می‌شود. روزهایی که بگذرند و ثبت نشوند <strong>از دست رفته</strong> ثبت می‌شوند. فقط روزهای از تاریخ شروع چالش به بعد قابل ثبت‌اند.</p>
+        <h4>قوانین اجباری (هر کدام تا ۱۰ امتیاز مثبت)</h4>
+        <div class="checkin-grid">
+          <label class="field">
+            <span><strong>📖 مطالعه روزانه</strong> — تعداد صفحات <em>(هدف: حداقل ۱۰ صفحه)</em></span>
+            <input type="number" id="inReading" min="0" max="5000" placeholder="مثلاً ۱۲" />
+            <span class="hint" id="hintReading"></span>
+          </label>
+          <label class="field">
+            <span><strong>🏃 ورزش روزانه</strong> — دقیقه <em>(هدف: حداقل ۶۰ دقیقه)</em></span>
+            <input type="number" id="inExercise" min="0" max="1440" placeholder="مثلاً ۶۵" />
+            <span class="hint" id="hintExercise"></span>
+          </label>
+          <label class="field">
+            <span><strong>🎯 پیشرفت هدف</strong> — دقیقه <em>(هدف: حداقل ۶۰ دقیقه)</em></span>
+            <input type="number" id="inGoal" min="0" max="1440" placeholder="مثلاً ۹۰" />
+            <span class="hint" id="hintGoal"></span>
+          </label>
+        </div>
+        <div class="checkin-grid">
+          <label class="field">
+            <span><strong>⏰ بیداری زودهنگام</strong> — ساعت بیدار شدن <em>(هدف: قبل از ۹:۰۰)</em></span>
+            <input type="time" id="inWake" />
+            <span class="hint" id="hintWake"></span>
+          </label>
+          <label class="field check">
+            <span><strong>🚭 دوری از دود</strong> <em>(از دود و محیط‌های سیگاری دوری کردم)</em></span>
+            <span class="check-row"><input type="checkbox" id="inNoSmoke" /><label for="inNoSmoke">امروز رعایت شد</label></span>
+          </label>
+          <label class="field check">
+            <span><strong>🍺 عدم مصرف الکل</strong> <em>(امروز الکل مصرف نکردم)</em></span>
+            <span class="check-row"><input type="checkbox" id="inNoAlcohol" /><label for="inNoAlcohol">امروز رعایت شد</label></span>
+          </label>
+        </div>
+        <div class="card" style="margin:.8rem 0">
+          <div class="card-head"><h3 style="margin:0">وظایف اختیاری امروز (هر کدام ‎+۲ تشویقی)</h3></div>
+          <div id="customChecklist" class="rules-check"></div>
+        </div>
+        <label class="field">
+          <span>یادداشت این روز <em>(اختیاری)</em></span>
+          <textarea id="inNotes" rows="2" maxlength="500" placeholder="چه خواندید / چگونه ورزش کردید / روی چه چیزی کار کردید؟"></textarea>
+        </label>
+        <div class="score-preview">
+          <div><span class="muted">امتیاز اجباری</span><strong id="liveScore">۰ از ۱۰۰</strong></div>
+          <div><span class="muted">رتبه</span><strong id="liveGrade">–</strong></div>
+          <div><span class="muted">قوانین انجام‌شده</span><strong id="liveRules">۰ از ۶</strong></div>
+          <div><span class="muted">تشویقی اختیاری</span><strong id="liveBonus">۰+</strong></div>
+        </div>
+        <div id="breakdownPreview" class="rules-check"></div>
+        <div class="row" style="margin-top:.7rem">
+          <button id="saveEntryBtn" class="btn btn-primary" type="button">ثبت نتیجه روزانه</button>
+          <button id="clearEntryBtn" class="btn btn-danger-ghost" type="button">حذف ثبت این روز</button>
+          <span id="saveMsg" class="muted small"></span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>سوابق ثبت‌های قبلی</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>تاریخ</th><th>اجباری (از ۶۰)</th><th>درصد</th><th>تشویقی</th><th>اختیاری</th><th>رتبه</th><th>وضعیت</th></tr></thead>
+          <tbody id="historyBody"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- CALENDAR -->
+    <section id="tab-calendar" class="panel">
+      <div class="card">
+        <div class="card-head">
+          <h3 id="calTitle">تقویم</h3>
+          <div class="row">
+            <button id="calPrev" class="btn btn-ghost small" type="button">→ قبلی</button>
+            <button id="calToday" class="btn btn-ghost small" type="button">امروز</button>
+            <button id="calNext" class="btn btn-ghost small" type="button">بعدی ←</button>
+          </div>
+        </div>
+        <div class="legend">
+          <span><i class="dot ok"></i> ثبت کامل</span>
+          <span><i class="dot partial"></i> ثبت ناقص</span>
+          <span><i class="dot missed"></i> از دست رفته</span>
+          <span><i class="dot pending"></i> در انتظار (امروز)</span>
+          <span><i class="dot future"></i> آینده / قبل از شروع</span>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div id="dayDetail" class="day-detail muted">یک روز را انتخاب کنید تا جزئیات نمایش داده شود.</div>
+      </div>
+    </section>
+
+    <!-- SCHEDULE -->
+    <section id="tab-schedule" class="panel">
+      <div class="card">
+        <div class="card-head"><h3>برنامه روزانه من</h3><input type="date" id="schedDate" /></div>
+        <p class="muted small">برنامه شخصی هر روز شما. در دیتابیس ذخیره می‌شود و در همه دستگاه‌ها در دسترس است.</p>
+        <div class="sched-add">
+          <input type="time" id="taskTime" value="08:00" />
+          <input type="text" id="taskTitle" maxlength="120" placeholder="مثلاً دویدن صبحگاهی، خواندن ۱۰ صفحه..." />
+          <button id="addTaskBtn" class="btn btn-primary small" type="button">افزودن</button>
+        </div>
+        <ul id="taskList" class="tasks"></ul>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <section id="tab-stats" class="panel">
+      <div class="grid-4">
+        <div class="card stat"><span class="stat-label">روزهای چالش (از شروع)</span><strong class="big" id="sTotal">۰</strong></div>
+        <div class="card stat"><span class="stat-label">ثبت‌شده</span><strong class="big green" id="sSubmitted">۰</strong></div>
+        <div class="card stat"><span class="stat-label">از دست رفته</span><strong class="big red" id="sMissed">۰</strong></div>
+        <div class="card stat"><span class="stat-label">روزهای کامل</span><strong class="big blue" id="sPerfect">۰</strong></div>
+      </div>
+      <div class="grid-4">
+        <div class="card stat"><span class="stat-label">امتیاز کلی چالش</span><strong class="big" id="sOverall">–</strong></div>
+        <div class="card stat"><span class="stat-label">میانگین روزهای ثبت‌شده</span><strong class="big" id="sAvgSub">–</strong></div>
+        <div class="card stat"><span class="stat-label">قوانین موفق / ناموفق</span><strong class="big small-big"><span class="green" id="sRuleDone">۰</span> / <span class="red" id="sRuleFail">۰</span></strong></div>
+        <div class="card stat"><span class="stat-label">وظایف اختیاری انجام‌شده</span><strong class="big small-big" id="sOpt">–</strong></div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><h3>روند امتیاز روزانه (۳۰ روز گذشته)</h3><canvas id="trendChart" height="160"></canvas></div>
+        <div class="card"><h3>پایبندی به هر قانون (روزهای ثبت‌شده)</h3><canvas id="rulesChart" height="160"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>کارنامه هر قانون اجباری</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>قانون</th><th>موفق</th><th>ناموفق</th><th>نرخ موفقیت</th></tr></thead>
+          <tbody id="ruleCountsBody"></tbody>
+        </table></div>
+      </div>
+      <div class="card"><h3>ثبت‌شده در برابر از دست رفته — ۱۲ هفته گذشته</h3><canvas id="weekChart" height="120"></canvas></div>
+    </section>
+
+    <!-- RULES -->
+    <section id="tab-rules" class="panel">
+      <div class="grid-3" id="rulesCards"></div>
+      <div class="card">
+        <h3>نحوه شفاف امتیازدهی</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>مورد</th><th>انجام کامل</th><th>انجام ناقص</th><th>عدم انجام</th></tr></thead>
+          <tbody>
+            <tr><td>📖 مطالعه (از ۱۰)</td><td>۱۰+ صفحه = ‎+۱۰</td><td>متناسب (مثلاً ۵ صفحه = ‎+۵)</td><td>‎−۱۰ از دست رفته</td></tr>
+            <tr><td>🏃 ورزش (از ۱۰)</td><td>۶۰+ دقیقه = ‎+۱۰</td><td>متناسب (مثلاً ۳۰ دقیقه = ‎+۵)</td><td>‎−۱۰ از دست رفته</td></tr>
+            <tr><td>🎯 هدف (از ۱۰)</td><td>۶۰+ دقیقه = ‎+۱۰</td><td>متناسب</td><td>‎−۱۰ از دست رفته</td></tr>
+            <tr><td>⏰ بیداری زودهنگام</td><td>قبل از ۹:۰۰ = ‎+۱۰</td><td>—</td><td>‎−۱۰ از دست رفته</td></tr>
+            <tr><td>🍺 عدم مصرف الکل</td><td>رعایت = ‎+۱۰</td><td>—</td><td>‎−۱۰ از دست رفته</td></tr>
+            <tr><td>🚭 دوری از دود</td><td>رعایت = ‎+۱۰</td><td>—</td><td>‎−۱۰ از دست رفته</td></tr>
+            <tr><td>📌 هر وظیفه اختیاری</td><td>‎+۲ تشویقی (جدا، سقف روزانه ‎+۱۰)</td><td>—</td><td>بدون جریمه</td></tr>
+          </tbody>
+        </table></div>
+        <p class="muted"><strong>امتیاز روزانه اجباری</strong> = مجموع ۶ قانون (۰ تا ۶۰) و <strong>درصد روزانه</strong> = امتیاز ÷ ۶۰ × ۱۰۰. <strong>امتیاز کلی چالش</strong> = مجموع امتیاز روزهای ثبت‌شده ÷ (۶۰ × روزهای سپری‌شده از شروع) × ۱۰۰ — روزهای از دست رفته صفر می‌گیرند و در مخرج هستند. وظایف اختیاری فقط امتیاز تشویقی جدا می‌دهند و در درصد اجباری اثر ندارند.</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>درصد</th><th>رتبه</th></tr></thead>
+          <tbody>
+            <tr><td>۱۰۰</td><td>کامل ⭐</td></tr>
+            <tr><td>۹۰ تا ۹۹</td><td>عالی</td></tr>
+            <tr><td>۷۵ تا ۸۹</td><td>خوب</td></tr>
+            <tr><td>۵۰ تا ۷۴</td><td>متوسط</td></tr>
+            <tr><td>۱ تا ۴۹</td><td>نیاز به تلاش</td></tr>
+            <tr><td>بدون ثبت (روز گذشته)</td><td>از دست رفته</td></tr>
+          </tbody>
+        </table></div>
+        <h3>امنیت و ذخیره‌سازی</h3>
+        <p class="muted">احراز هویت و دیتابیس با Supabase است. فرانت‌اند فقط از <strong>کلید عمومی anon</strong> استفاده می‌کند و سیاست‌های <strong>Row Level Security</strong> تضمین می‌کنند هر کاربر فقط به چالش‌ها، وظایف، ثبت‌ها و امتیازهای خودش دسترسی دارد. کلید service_role هیچ‌وقت در کد فرانت‌اند قرار نمی‌گیرد.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>برنامه‌ریز انضباط روزانه · فرانت‌اند GitHub Pages + دیتابیس Supabase · بدون سرور اختصاصی</footer>
+</div>
+
+<!-- toast notification -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- loading overlay -->
+<div id="loading" class="modal hidden">
+  <div class="modal-card narrow"><p id="loadingMsg">در حال بارگذاری...</p></div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+# NOTE: supabase-config.js intentionally committed — it holds ONLY the
+# public anon key (safe by design; RLS enforces data isolation).
+# Never commit a service_role key anywhere in this repo.
