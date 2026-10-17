@@ -64,7 +64,16 @@ export function onAuthChange(cb) {
 // Ensure a profiles row exists (trigger usually creates it; fallback here).
 export async function ensureProfile(user, fallbackName) {
   const c = sb();
-  const { data, error } = await c.from("profiles").select("id, username").eq("id", user.id).maybeSingle();
+  // Admin-panel columns (account_status/role) may not exist if the
+  // optional admin schema was not applied — degrade gracefully.
+  let { data, error } = await c.from("profiles")
+    .select("id, username, account_status, role")
+    .eq("id", user.id).maybeSingle();
+  if (error && /column|schema cache/i.test(String(error.message))) {
+    const retry = await c.from("profiles").select("id, username").eq("id", user.id).maybeSingle();
+    data = retry.data; error = retry.error;
+    if (data) data = { ...data, account_status: "active", role: "user" };
+  }
   if (error) throw error;
   if (data) return data;
   const base = (user.user_metadata?.username || fallbackName || String(user.email).split("@")[0] || "کاربر").trim().slice(0, 30);
@@ -77,7 +86,14 @@ export async function ensureProfile(user, fallbackName) {
     username = `${base}${Math.floor(100 + Math.random() * 900)}`;
   }
   if (!profile) throw lastErr || new Error("ساخت پروفایل ناموفق بود.");
-  return profile;
+  return { ...profile, account_status: profile.account_status || "active", role: profile.role || "user" };
+}
+
+// Heartbeat for admin activity views (login + periodic app loads).
+// Silently ignored when the optional admin schema is not applied.
+export async function touchActivity(login = false) {
+  try { await sb().rpc("touch_activity", { p_login: login }); return true; }
+  catch { return false; }
 }
 
 // ---------- challenges ----------

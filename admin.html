@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>پنل مدیریت — برنامه‌ریز انضباط روزانه</title>
+<meta name="description" content="پنل مدیریت برنامه چالش انضباط روزانه — آمار کاربران، چالش‌ها و عملکرد روزانه." />
+<meta name="robots" content="noindex, nofollow" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="admin-styles.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="supabase-config.js" onerror="window.SUPABASE_CONFIG_MISSING=true"></script>
+</head>
+<body>
+
+<!-- ============ ADMIN LOGIN ============ -->
+<div id="admLogin" class="adm-screen hidden">
+  <div class="adm-auth-card">
+    <div class="adm-logo big">AP</div>
+    <h2>پنل مدیریت</h2>
+    <p class="muted small">ورود اختصاصی مدیران برنامه‌ریز انضباط روزانه. سطح دسترسی شما مستقیماً در دیتابیس (نقش مدیر) بررسی می‌شود و در صورت نداشتن نقش، ورود انجام نمی‌شود.</p>
+    <form id="admLoginForm" autocomplete="off">
+      <label class="adm-field">
+        <span>نام کاربری یا ایمیل</span>
+        <input type="text" id="admLoginUser" dir="ltr" autocomplete="username" placeholder="admin یا admin@mail.com" />
+      </label>
+      <label class="adm-field">
+        <span>رمز عبور</span>
+        <input type="password" id="admLoginPass" dir="ltr" autocomplete="current-password" placeholder="••••••••" />
+      </label>
+      <button id="admLoginBtn" class="btn btn-primary btn-block" type="submit">ورود به پنل مدیریت</button>
+      <p id="admLoginMsg" class="adm-msg small muted"></p>
+    </form>
+    <div class="adm-auth-foot">
+      <a href="index.html" class="muted small">← بازگشت به صفحه کاربران عادی</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ACCESS DENIED (non-admin session) ============ -->
+<div id="admDenied" class="adm-screen hidden">
+  <div class="adm-auth-card center">
+    <div class="adm-logo big redbg">⛔</div>
+    <h2>دسترسی غیرمجاز</h2>
+    <p id="admDeniedMsg" class="muted small">شما با حساب عادی وارد شده‌اید و اجازه دسترسی به پنل مدیریت را ندارید. سیاست‌های امنیتی سمت دیتابیس این محتوا را برای شما مسدود می‌کند.</p>
+    <div class="row">
+      <button id="admDeniedLogout" class="btn btn-primary" type="button">خروج از حساب</button>
+      <a href="index.html" class="btn btn-ghost" type="button">بازگشت به برنامه</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SETUP REQUIRED (no supabase-config / schema) ============ -->
+<div id="admSetup" class="adm-screen hidden">
+  <div class="adm-auth-card wide">
+    <div class="adm-logo big">DP</div>
+    <h2 id="admSetupTitle">اتصال پنل مدیریت</h2>
+    <div id="admSetupBody" class="small muted"></div>
+    <div class="row" style="margin-top:.8rem"><a href="index.html" class="btn btn-ghost" type="button">بازگشت به برنامه</a></div>
+  </div>
+</div>
+
+<!-- ============ APP SHELL ============ -->
+<div id="admApp" class="adm-app hidden">
+  <div class="adm-backdrop" id="admBackdrop" tabindex="-1"></div>
+
+  <aside class="adm-sidebar" id="admSidebar" aria-label="منوی پنل مدیریت">
+    <div class="adm-brand">
+      <div class="adm-logo">AP</div>
+      <div><h1>پنل مدیریت</h1><p>برنامه‌ریز انضباط روزانه</p></div>
+    </div>
+    <nav class="adm-nav">
+      <button class="adm-nav-item" data-route="overview" type="button"><span class="ico">📊</span> نمای کلی</button>
+      <button class="adm-nav-item" data-route="users" type="button"><span class="ico">👥</span> کاربران</button>
+      <button class="adm-nav-item" data-route="active" type="button"><span class="ico">🔥</span> کاربران فعال</button>
+      <button class="adm-nav-item" data-route="challenges" type="button"><span class="ico">🏆</span> چالش‌ها</button>
+      <button class="adm-nav-item" data-route="analytics" type="button"><span class="ico">📈</span> تحلیل عملکرد</button>
+      <button class="adm-nav-item" data-route="logs" type="button"><span class="ico">🧾</span> گزارش فعالیت‌ها</button>
+      <button class="adm-nav-item" data-route="settings" type="button"><span class="ico">⚙️</span> تنظیمات مدیریت</button>
+    </nav>
+    <div class="adm-sidebar-foot">
+      <div class="adm-mini-user" id="admSideUser"></div>
+      <button id="admLogoutSide" class="btn btn-ghost small btn-block" type="button">🚪 خروج از پنل</button>
+    </div>
+  </aside>
+
+  <div class="adm-main">
+    <header class="adm-topbar">
+      <button id="admSideToggle" class="adm-burger" type="button" aria-label="باز و بسته کردن منو">☰</button>
+      <div class="adm-topbar-title" id="admTitle">نمای کلی</div>
+      <div class="adm-top-actions">
+        <span class="adm-user-pill" id="admUserPill"></span>
+        <button id="admRefreshBtn" class="btn btn-ghost small" type="button" title="به‌روزرسانی داده‌ها">⟳ به‌روزرسانی</button>
+        <a class="btn btn-ghost small" href="index.html" title="رفتن به برنامه اصلی">برنامه اصلی</a>
+        <button id="admLogoutTop" class="btn btn-danger-ghost small" type="button">خروج</button>
+      </div>
+    </header>
+    <main id="admContent" class="adm-content" aria-live="polite"></main>
+    <footer class="adm-foot">پنل مدیریت · دسترسی فقط برای نقش‌های مدیر · امنیت با RLS دیتابیس</footer>
+  </div>
+</div>
+
+<!-- ============ CONFIRM MODAL ============ -->
+<div id="admConfirm" class="adm-modal hidden">
+  <div class="adm-modal-card">
+    <h3 id="admConfirmTitle">تأیید</h3>
+    <p id="admConfirmMsg" class="small muted"></p>
+    <div class="row" style="margin-top:1rem">
+      <button id="admConfirmOk" class="btn btn-danger" type="button">تأیید</button>
+      <button id="admConfirmCancel" class="btn btn-ghost" type="button">انصراف</button>
+    </div>
+  </div>
+</div>
+
+<!-- toast -->
+<div id="admToast" class="adm-toast hidden"></div>
+
+<script type="module" src="js/admin/admin-app.js"></script>
+</body>
+</html>

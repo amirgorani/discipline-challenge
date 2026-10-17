@@ -12,7 +12,7 @@ import {
   dayStatus, computeStats, calcStreaks, ruleCounters,
 } from "./scoring.js";
 import {
-  faError, signUp, signIn, signOut, getSessionUser, onAuthChange, ensureProfile,
+  faError, signUp, signIn, signOut, getSessionUser, onAuthChange, ensureProfile, touchActivity,
   listChallenges, createChallenge, updateChallenge, deleteChallenge,
   listTasks, addTask, updateTask, renameTask, deleteTask, taskDescriptionSupported,
   listSubmissions, upsertSubmission, deleteSubmission,
@@ -68,6 +68,18 @@ function switchTab(name) {
 }
 function activeChallenge() { return S.challenges.find((c) => c.id === S.activeId) || null; }
 function activeKey() { return S.user ? `ddp-active-${S.user.id}` : null; }
+// Shortcut for administrators only — real access is decided by the
+// database; this button is pure convenience.
+function showAdminLink(role) {
+  if (role !== "admin" && role !== "super_admin") return;
+  if ($("adminPanelBtn")) return;
+  const btn = document.createElement("a");
+  btn.id = "adminPanelBtn";
+  btn.className = "btn btn-ghost";
+  btn.href = "admin.html";
+  btn.textContent = "🛡 پنل مدیریت";
+  $("topActions").appendChild(btn);
+}
 
 /* ---------------- boot & routing ---------------- */
 async function boot() {
@@ -91,6 +103,19 @@ async function enterApp(user) {
   loading(true, "در حال دریافت اطلاعات...");
   try {
     S.profile = await ensureProfile(user);
+    // Admin panel integration: suspended accounts cannot use the app
+    // (admins can re-activate from the admin panel at any time).
+    if (S.profile.account_status === "suspended") {
+      loading(false);
+      await signOut().catch(() => {});
+      S.user = null; S.profile = null;
+      $("loginMsg").textContent = "حساب شما توسط پنل مدیریت معلق شده است. جهت پیگیری، به پشتیبانی مراجعه کنید.";
+      show("view-auth");
+      return;
+    }
+    showAdminLink(S.profile.role);
+    touchActivity(!S._touchedOnce);          // meaningful activity ping (login → true)
+    S._touchedOnce = true;                   // avoid double login marking
     S.challenges = await listChallenges();
   } catch (e) {
     loading(false);
