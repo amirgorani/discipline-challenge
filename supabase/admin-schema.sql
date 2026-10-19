@@ -60,9 +60,6 @@ create index if not exists challenges_user_created_idx  on public.challenges (us
 create index if not exists submissions_day_idx          on public.daily_submissions (day);
 create index if not exists scores_day_idx               on public.daily_scores (day);
 create index if not exists scores_status_idx            on public.daily_scores (status);
-create index if not exists task_history_challenge_idx   on public.custom_task_history (challenge_id);
-create index if not exists audit_created_idx            on public.admin_audit_logs (created_at desc);
-create index if not exists audit_action_created_idx     on public.admin_audit_logs (action, created_at desc);
 
 -- ---------- 4) helper role checks (RLS-safe) ----------
 -- security definer → reads profiles as the table owner, so these are
@@ -189,6 +186,7 @@ create table if not exists public.custom_task_history (
   archived_at timestamptz not null default now()
 );
 create unique index if not exists task_history_task_idx on public.custom_task_history (task_id);
+create index if not exists task_history_challenge_idx on public.custom_task_history (challenge_id);
 alter table public.custom_task_history enable row level security;
 drop policy if exists "admin read task history" on public.custom_task_history;
 create policy "admin read task history" on public.custom_task_history
@@ -222,6 +220,8 @@ create table if not exists public.admin_audit_logs (
   details jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+create index if not exists audit_created_idx        on public.admin_audit_logs (created_at desc);
+create index if not exists audit_action_created_idx on public.admin_audit_logs (action, created_at desc);
 alter table public.admin_audit_logs enable row level security;
 drop policy if exists "admin read audit logs" on public.admin_audit_logs;
 create policy "admin read audit logs" on public.admin_audit_logs
