@@ -454,6 +454,7 @@ uchal as (
     select id, user_id, start_date,
            (current_date >= start_date
                and current_date <= start_date + coalesce(duration_days, 90) - 1) as is_ongoing,
+           (current_date > start_date + coalesce(duration_days, 90) - 1) as is_completed,
            least(greatest(current_date - start_date + 1, 0), coalesce(duration_days, 90)) as window_elapsed
     from public.challenges
   ) c
@@ -464,7 +465,6 @@ uchal as (
     from public.daily_scores s
     group by s.challenge_id
   ) cs on cs.challenge_id = c.id
-  where start_date <= current_date
   group by c.user_id
 ),
 uperf as (
@@ -563,7 +563,6 @@ agg as (
     from public.daily_scores s
     group by s.challenge_id
   ) cs on cs.challenge_id = c.id
-  where c.start_date <= current_date
 ),
 recent as (
   select jsonb_agg(to_jsonb(b) order by day desc) as arr
